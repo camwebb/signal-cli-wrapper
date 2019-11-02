@@ -7,7 +7,7 @@ Usage:
  * `sg snd <name> "message"` : Send to a name not a number
  * `sg rcv` : Get messages, which are written to a log file
  * `sg ids` : Check the phone numbers you have keys for
- * `sg log` : Read the logs more easily
+ * `sg log` : Read the logs more easily (to see receipts and read-receipts)
  * `sg cnv <name>` : Display a conversation:
  
 <img src="img/cnv.png" width="50%"/>
