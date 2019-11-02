@@ -8,9 +8,9 @@ Usage:
  * `sg rcv` : Get messages, which are written to a log file
  * `sg ids` : Check the phone numbers you have keys for
  * `sg log` : Read the logs more easily
- * `sg cnv` : Display a conversation:
+ * `sg cnv <name>` : Display a conversation:
  
-<center><img src="img/cnv.png" width="50%"/></center>
+<img src="img/cnv.png" width="50%"/>
 
 Also included: `checksg` a script to execute `sg rcv` and notify you via
 `send-notify`; run it as a `cron` job.
@@ -18,7 +18,11 @@ Also included: `checksg` a script to execute `sg rcv` and notify you via
 ## Installation
 
  1. Make the scripts executable (`chmod u+x sg`)
- 2. Scripts and `signal-cli` must be in the shell `$PATH`
- 3. Configure your numbers by editing the config. section of `sg` 
+ 2. Scripts and `signal-cli` must be in the shell’s `$PATH`
+ 3. Assign names to your numbers by editing the config. section of `sg` 
  4. (Optional) Add the full path to `sg` in `checksg` and add `checksg`
-    to your `crontab` (e.g., `0,10,20,30,40,50 * * * *   /home/foo/bin/checksg`)
+    to your `crontab`. E.g.: 
+
+```    
+0,10,20,30,40,50 * * * *   /home/foo/bin/checksg
+```
