@@ -1,6 +1,6 @@
 # signal-cli-wrapper
 
-_A `bash` script for easier use of `signal-cli`_
+_A `bash` script for easier use of [signal-cli](https://github.com/AsamK/signal-cli)_
 
 Usage: 
 
