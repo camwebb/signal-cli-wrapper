@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# Cron executable to check for new signal messages and notify
+# Cam Webb <https://github.com/camwebb/signal-cli-wrapper>
+# This is free and unencumbered software released into the public domain.
+#   Please refer to <https://unlicense.org>
+
+# Installation: 1) make this script executable
+#               2) configure below
+#               2) trigger via crontab, e.g.,
+#                    0,10,20,30,40,50 * * * *   /home/foo/bin/checksg
+
+# BEGIN CONFIG
+
+# full path to sg executable
+SG=/home/foo/bin/sg
+
+# END CONFIG
+
+# test to see if you are online
+CK=`ping -c 1 google.com 2> /dev/null | grep '1 received'`
+
+if [ -z "$CK" ]
+then
+    echo "not online" > /dev/stderr
+    exit 1
+else
+    MSG=`$SG rcv`
+fi
+
+if [ -n "$MSG" ]
+then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/1000/bus"
+    notify-send -u normal -t 3600000 "New Signal message"
+fi
+
