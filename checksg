@@ -2,8 +2,7 @@
 
 # Cron executable to check for new signal messages and notify
 # Cam Webb <https://github.com/camwebb/signal-cli-wrapper>
-# This is free and unencumbered software released into the public domain.
-#   Please refer to <https://unlicense.org>
+# This software is released under GNU GPLv3. See LICENSE file.
 
 # Installation: 1) make this script executable
 #               2) configure below

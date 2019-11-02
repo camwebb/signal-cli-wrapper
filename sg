@@ -3,11 +3,10 @@
 # Wrapper for signal-cli, adding convenience and color
 # Cam Webb <https://github.com/camwebb/signal-cli-wrapper>
 
-# License: This software depends on GPL3-licenced software, but via CLI
+# License: This software depends on GPLv3-licenced software, but via CLI
 # and pipes. It therefore counts as independent software (see
 # https://www.gnu.org/licenses/gpl-faq.html#MereAggregation).
-# This is free and unencumbered software released into the public domain.
-#   Please refer to <https://unlicense.org>
+# This software is however also released under GNU GPLv3. See LICENSE file.
 
 # Installation: 1) make this script executable
 #               2) script and signal-cli must be in $PATH
