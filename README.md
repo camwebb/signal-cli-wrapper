@@ -8,6 +8,7 @@ Usage:
  * `sg rcv` : Get messages, which are written to a log file
  * `sg ids` : Check the phone numbers you have keys for
  * `sg log` : Read the logs more easily (to see receipts and read-receipts)
+ * `sg new` : Show the most recent new messages and confirmations
  * `sg cnv <name>` : Display a conversation:
  
 <img src="img/cnv.png" width="50%"/>
