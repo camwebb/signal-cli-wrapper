@@ -23,7 +23,7 @@ NUM[jane]="+19999999992"
 
 # END CONFIG
 
-USAGE="Usage: sg [ ids | snd NAME \"message\" | rcv | cnv NAME | log ]"
+USAGE="Usage: sg [ ids | snd NAME \"message\" | rcv | cnv NAME | log | new ]"
 
 # Construct sed substitution for reading log and ids
 SEDSTR="sed -E "
@@ -34,6 +34,8 @@ done
 
 # Logfile
 LOG=~/.local/share/signal-cli/data/${MYNUM}.d/msgs
+# Read
+OLDLINES=`cat ~/.local/share/signal-cli/data/${MYNUM}.d/.oldlines`
 
 # Logfile date format
 DATE=`date +"%s000 (%Y-%m-%dT%H:%M:00.000Z)" -u`
@@ -64,11 +66,20 @@ then
 # Send a message to <name> and write to logfile
 elif [ $1 == "snd" ]
 then
-    # as long as the rigth # of arguments
+    # as long as the right # of arguments
     if [ $# -eq 3 -a -n "${NUM[$2]}" ]
     then
-        echo -e "Sent to: "${NUM[$2]}"\nTimestamp: $DATE\nBody: $3\n" >> $LOG
-        signal-cli -u $MYNUM send ${NUM[$2]} -m "$3"
+        read -p "Sending to * $2 *. Sure? (respond y) " SURE
+        if [ $SURE = "Y" -o $SURE = "y" ]
+        # comment out the previous two lines and don't want this check
+        # if [ 1 -eq 1 ] 
+        then
+            echo -e "Sent to: "${NUM[$2]}"\nTimestamp: $DATE\nBody: $3\n" \
+                 >> $LOG
+            signal-cli -u $MYNUM send ${NUM[$2]} -m "$3"
+        else
+            exit 1
+        fi
     else
         echo -e "  " $USAGE
         exit 1
@@ -80,17 +91,16 @@ then
     # as long as there is a second argument, the <name>
     if [ $# -eq 2 -a -n "${NUM[$2]}" ]
     then
-        echo
         # (for colors: https://en.wikipedia.org/wiki/ANSI_escape_code )
         gawk -v "num=${NUM[$2]}" -v "name=$2" \
           'BEGIN{RS="" ; FS="\n" ; width = 60}
            {
              # for each log entry, is it a sent or recieved msg for <num>?
              if ($1 ~ ("Sent to: \\" num))
-               page(substr($3,7), (sprintf("%*s", length(name), " ") " < "),\
+               page(substr($3,7), (sprintf("%*s", length(name), " ") "<< "),\
                  "10", substr($2,12,10))
              if (($1 ~ ("Envelope from: \\" num)) && ($4 ~ /^Body/))
-               page(substr($4,7), (name " > "), "11", substr($2,12,10))
+               page(substr($4,7), (name " : "), "11", substr($2,12,10))
            }
            # arguments: message, message prefix, color, timestamp
            function page(msg, l1, col, ts,      lines, i,dash,ec,bc) {
@@ -115,4 +125,26 @@ then
         echo -e "  " $USAGE
         exit 1
     fi
+
+# New messages
+elif [ $1 == "new" ]
+then
+    echo
+    # cat "$LOG" | \
+    tail -n +"$OLDLINES" "$LOG" | \
+        gawk 'BEGIN{RS="" ; FS="\n"}
+          {split($1,n," ")}
+          $1 ~ /^Envelope from/ && $4 ~ /^Body/ {
+            print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
+              n[3] ": " substr($4,7,20) "..." } \
+          $1 ~ /^Envelope from/ && $3 ~ /^Got/ {
+            print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
+              n[3] "[on device]" } \
+          $1 ~ /^Envelope from/ && $5 ~ /read receipt/ {
+            print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
+              n[3] "[read]" } \
+           ' | eval "$SEDSTR" | sed -E 's/\([^)]+\)//g'
+    # echo
+    wc "$LOG" | gawk '{print $1}' > \
+      ~/.local/share/signal-cli/data/${MYNUM}.d/.oldlines
 fi
