@@ -11,17 +11,8 @@
 # Installation: 1) make this script executable
 #               2) script and signal-cli must be in $PATH
 
-# BEGIN CONFIG:
-
-# User's number
-MYNUM="+19999999999"
-
-# Phone book; make sure every entry from `sg ids` is entered here:
-declare -A NUM
-NUM[joe]="+19999999991"
-NUM[jane]="+19999999992"
-
-# END CONFIG
+# Read config file
+source ~/.local/share/signal-cli/scw_config.sh
 
 USAGE="Usage: sg [ ids | snd NAME \"message\" | rcv | cnv NAME | log | new ]"
 

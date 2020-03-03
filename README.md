@@ -20,7 +20,8 @@ Also included: `checksg` a script to execute `sg rcv` and notify you via
 
  1. Make the scripts executable (`chmod u+x sg`)
  2. Scripts and `signal-cli` must be in the shell’s `$PATH`
- 3. Assign names to your numbers by editing the config. section of `sg` 
+ 3. Copy the `scw_config.sh` to `~/.local/share/signal-cli/` and assign names 
+    to your numbers.
  4. (Optional) Add the full path to `sg` in `checksg` and add `checksg`
     to your `crontab`. E.g.: 
 
