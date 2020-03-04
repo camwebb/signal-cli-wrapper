@@ -17,7 +17,7 @@ source ~/.local/share/signal-cli/scw_config.sh
 SEDSTR="sed -E "
 for i in "${!NUM[@]}"
 do
-    SEDSTR="$SEDSTR -e 's/(\\"${NUM[$i]}")/"$i" (\1)/g' "
+    SEDSTR="$SEDSTR -e 's/(\\"${NUM[$i]}")/"$i"/g' "
 done
 
 # test to see if you are online
@@ -32,8 +32,7 @@ else
            gawk 'BEGIN{RS="" ; FS="\n"; ORS = ""}
                  {split($1,n," ")}
                  $1 ~ /^Envelope from/ && $4 ~ /^Body/ {
-                   print  " " n[3] }' \
-           | eval "$SEDSTR" `  # | sed -E 's/\([^)]+\)//g'
+                   print  " " n[3] }' | eval "$SEDSTR" `
 fi
 
 if [ -n "$MSG" ]

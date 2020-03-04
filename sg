@@ -137,5 +137,23 @@ then
            ' | eval "$SEDSTR" | sed -E 's/\([^)]+\)//g'
     # echo
     wc "$LOG" | gawk '{print $1}' > \
-      ~/.local/share/signal-cli/data/${MYNUM}.d/.oldlines
+       ~/.local/share/signal-cli/data/${MYNUM}.d/.oldlines
+
+# Test for user
+elif [ $1 == "ckn" ]
+then
+    if [ $# -eq 2 ]
+    then
+        echo "Testing for a Signal user at "$2
+        ERR=`signal-cli -u $MYNUM send "$2" -m "Testing if you use Signal" 2>&1 > /dev/null`
+        if [ -n "$ERR" ]
+        then
+            echo "... User does not have a Signal account"
+        else
+            echo "... User has a Signal account (Message sent was 'Testing if you use Signal')"
+        fi
+    else
+        echo -e "  " $USAGE
+        exit 1
+    fi
 fi
