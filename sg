@@ -14,7 +14,7 @@
 # Read config file
 source ~/.local/share/signal-cli/scw_config.sh
 
-USAGE="Usage: sg [ ids | snd NAME \"message\" | rcv | cnv NAME | log | new ]"
+USAGE="Usage: sg [ ids | snd NAME \"message\" | rcv | cnv NAME | log | new | ckn NUM ]"
 
 # Construct sed substitution for reading log and ids
 SEDSTR="sed -E "
@@ -83,6 +83,7 @@ then
     if [ $# -eq 2 -a -n "${NUM[$2]}" ]
     then
         # (for colors: https://en.wikipedia.org/wiki/ANSI_escape_code )
+        # With upgrade to signal-cli 0.6.5, logged rcv Body = $6, Sender = $4 
         gawk -v "num=${NUM[$2]}" -v "name=$2" \
           'BEGIN{RS="" ; FS="\n" ; width = 60}
            {
@@ -90,8 +91,8 @@ then
              if ($1 ~ ("Sent to: \\" num))
                page(substr($3,7), (sprintf("%*s", length(name), " ") "<< "),\
                  "10", substr($2,12,10))
-             if (($1 ~ ("Envelope from: \\" num)) && ($4 ~ /^Body/))
-               page(substr($4,7), (name " : "), "11", substr($2,12,10))
+             if (($4 ~ ("Sender: \\" num)) && ($6 ~ /^Body/))
+               page(substr($6,7), (name " : "), "11", substr($2,12,10))
            }
            # arguments: message, message prefix, color, timestamp
            function page(msg, l1, col, ts,      lines, i,dash,ec,bc) {
@@ -124,16 +125,15 @@ then
     # cat "$LOG" | \
     tail -n +"$OLDLINES" "$LOG" | \
         gawk 'BEGIN{RS="" ; FS="\n"}
-          {split($1,n," ")}
-          $1 ~ /^Envelope from/ && $4 ~ /^Body/ {
+          $1 ~ /^Envelope from/ && $6 ~ /^Body/ {split($4,n," ");
             print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
-              n[3] ": " substr($4,7,20) "..." } \
-          $1 ~ /^Envelope from/ && $3 ~ /^Got/ {
+              n[2] ": " substr($6,7,20) "..." } \
+          $1 ~ /^Envelope from/ && $3 ~ /^Got/ {split($1,n," ");
             print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
               n[3] "[on device]" } \
-          $1 ~ /^Envelope from/ && $5 ~ /read receipt/ {
+          $1 ~ /^Envelope from/ && $7 ~ /read receipt/ {split($4,n," ");
             print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
-              n[3] "[read]" } \
+              n[2] "[read]" } \
            ' | eval "$SEDSTR" | sed -E 's/\([^)]+\)//g'
     # echo
     wc "$LOG" | gawk '{print $1}' > \

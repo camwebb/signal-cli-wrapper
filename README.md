@@ -7,6 +7,7 @@ Usage:
  * `sg snd <name> "message"` : Send to a name not a number
  * `sg rcv` : Get messages, which are written to a log file
  * `sg ids` : Check the phone numbers you have keys for
+ * `sg ckn <num>` : Test if `<num>` (prefix with `+`) using Signal
  * `sg log` : Read the logs more easily (to see receipts and read-receipts)
  * `sg new` : Show the most recent new messages and confirmations
  * `sg cnv <name>` : Display a conversation:
