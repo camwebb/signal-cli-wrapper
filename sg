@@ -220,7 +220,8 @@ BEGIN{
   exit 0
 }
 
-# TODO add trust: signal-cli -u +19073858530 trust -v "50467 94008 71129 72250 81900 09933 84705 05201 02263 18919 28291 21194" +628972382695
+# TODO add trust:
+#  signal-cli -u +1xxxxxxxxxx trust -v "50467 94008 ..." +62yyyyyyyyyy
 
 function line(msg, l1, col, ts,      lines, i,dash,ec,bc) {
   # arguments: message, message prefix, color, timestamp
