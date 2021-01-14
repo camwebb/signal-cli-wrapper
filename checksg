@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/gawk -f
 
 # Cron executable to check for new signal messages and notify
 # Cam Webb <https://github.com/camwebb/signal-cli-wrapper>
@@ -6,38 +6,39 @@
 
 # Installation: 1) make this script executable
 #               2) configure below
-#               2) trigger via crontab, e.g.,
+#               3) trigger via crontab, e.g.,
 #                    0,10,20,30,40,50 * * * *   /home/foo/bin/checksg
 
 # BEGIN CONFIG
-source ~/.local/share/signal-cli/scw_config.sh
+@include "/home/cam/.local/share/signal-cli/scw_config.awk"
 # END CONFIG
 
-# Construct sed substitution for reading log and ids
-SEDSTR="sed -E "
-for i in "${!NUM[@]}"
-do
-    SEDSTR="$SEDSTR -e 's/(\\"${NUM[$i]}")/"$i"/g' "
-done
+BEGIN{
 
-# test to see if you are online
-CK=`ping -c 1 google.com 2> /dev/null | grep '1 received'`
+  # Setup
+  config()
+  for (i in NUM)
+    iNUM[NUM[i]] = i
 
-if [ -z "$CK" ]
-then
-    # echo "not online" > /dev/stderr
+  # test to see if you are online
+  "ping -c 1 google.com 2> /dev/null | grep '1 received'" | getline CK
+  if (!CK)
     exit 1
-else
-    MSG=`$SG rcv | \
-           gawk 'BEGIN{RS="" ; FS="\n"; ORS = ""}
-                 {split($1,n," ")}
-                 $1 ~ /^Envelope from/ && $4 ~ /^Body/ {
-                   print  " " n[3] }' | eval "$SEDSTR" `
-fi
-
-if [ -n "$MSG" ]
-then
-    export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/1000/bus"
-    notify-send -u normal -t 36000000 "Signal msg from$MSG"
-    sudo /root/bin/msgterm "Signal msg from$MSG"
-fi
+  
+  cmd = SG " rcv"
+  RS  = ""
+  FS  = "\n"
+  ORS = ""
+  while ((cmd | getline) > 0) {
+    split($4, n, " ")
+    if (($1 ~ /^Envelope from/) && ($6 ~ /^Body/))
+      msg = msg " " iNUM[n[2]]
+  }
+  msg = substr(msg, 2)
+  
+  if (msg) {
+    system("DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/1000/bus' "   \
+           "notify-send -u normal -t 36000000 'Signal msg from " msg "'")
+    system("sudo /root/bin/msgterm 'Signal msg from " msg "'")
+  }
+}

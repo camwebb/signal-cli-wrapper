@@ -1,0 +1,228 @@
+#!/bin/sh
+
+# Wrapper for signal-cli, adding convenience and color
+# Cam Webb <https://github.com/camwebb/signal-cli-wrapper>
+
+# License: This software depends on GPLv3-licenced software, but via CLI
+# and pipes. It therefore counts as independent software (see
+# https://www.gnu.org/licenses/gpl-faq.html#MereAggregation).
+# This software is however also released under GNU GPLv3. See LICENSE file.
+
+# Installation: 1) make this script executable
+#               2) script and signal-cli must be in $PATH
+
+# Read config file
+source ~/.local/share/signal-cli/scw_config.sh
+
+USAGE="Usage: sg [ ids | snd NAME \"message\" | rcv | cnv NAME | log | new | ckn NUM ]"
+
+# Construct sed substitution for reading log and ids
+SEDSTR="sed -E "
+for i in "${!NUM[@]}" # $(seq 0 $((${#NUM[@]} - 1)))
+do
+    # numbers
+    if [ ${NUM[$i]:0:1} = "+" ]
+    then
+        SEDSTR="$SEDSTR -e 's/(\\"${NUM[$i]}")/"$i"/g' "
+        # SEDSTR="$SEDSTR -e 's/(\\"${NUM[$i]}")/"$i" (\1)/g' "
+    else
+        # groups
+        SEDSTR="$SEDSTR -e 's/("${NUM[$i]}")/"$i"/g' "
+        # SEDSTR="$SEDSTR -e 's/("${NUM[$i]}")/"$i" (\1)/g' "
+    fi
+done
+
+# Logfile
+LOG=~/.local/share/signal-cli/data/${MYNUM}.d/msgs
+# Read
+OLDLINES=`cat ~/.local/share/signal-cli/data/${MYNUM}.d/.oldlines`
+
+# Logfile date format
+DATE=`date +"%s000 (%Y-%m-%dT%H:%M:00.000Z)" -u`
+
+# Read input
+
+# If no arguments
+if [ $# -eq 0 ]
+then
+    echo -e "  " $USAGE
+    exit 1
+
+# get the registered numbers
+elif [ $1 == "ids" ]
+then
+    signal-cli -u $MYNUM listIdentities | eval $SEDSTR | sed 's/:.*$//g'
+
+# get the latest messages and write to stdout and to logfile
+elif [ $1 == "rcv" ]
+then
+    signal-cli -u $MYNUM receive | tee -a $LOG
+
+# read the logfile, substituting names for numbers
+elif [ $1 == "log" ]
+then
+    cat $LOG | eval "$SEDSTR" | less +G
+
+# Send a message to <name> and write to logfile
+elif [ $1 == "snd" ]
+then
+    # as long as the right # of arguments
+    if [ $# -eq 3 -a -n "${NUM[$2]}" ]
+    then
+        # read -p "Sending to * $2 *. Sure? (respond y) " SURE
+        # if [ $SURE = "Y" -o $SURE = "y" ]
+        # comment out the previous two lines and don't want this check
+        if [ 1 -eq 1 ] 
+        then
+            echo -e "Sent to: "${NUM[$2]}"\nTimestamp: $DATE\nBody: $3\n" \
+                 >> $LOG
+            signal-cli -u $MYNUM send "${NUM[$2]}" -m "$3"
+        else
+            exit 1
+        fi
+    else
+        echo -e "  " $USAGE
+        exit 1
+    fi
+
+# Create a conversation from the logfile
+elif [ $1 == "cnv" ]
+then
+    # as long as there is a second argument, the <name>
+    if [ $# -eq 2 -a -n "${NUM[$2]}" ]
+    then
+        # (for colors: https://en.wikipedia.org/wiki/ANSI_escape_code )
+        # With upgrade to signal-cli 0.6.5, logged rcv Body = $6, Sender = $4 
+        gawk -v "num=${NUM[$2]}" -v "name=$2" \
+          'BEGIN{RS="" ; FS="\n" ; width = 60; gsub(/\+/,"\\+",num)}
+           {
+             # for each log entry, is it a sent to person?
+             if ($1 ~ ("Sent to: " num))
+               page(substr($3,7), (sprintf("%*s", length(name), " ") "<< "),\
+                 "10", substr($2,12,10))
+             # sent from person?
+             else if (($4 ~ ("Sender: " num)) && ($6 ~ /^Body/) && \
+                 ($7 !~ /^Group/))
+               page(substr($6,7), (name " : "), "11", substr($2,12,10))
+             # sent to group?
+             else if ($1 ~ ("Group sent to: " num))
+               page(substr($3,7), (sprintf("%*s", length(name), " ") "<< "),\
+                 "10", substr($2,12,10))
+             # sent from group friend
+             else if (($4 ~ ("Sender:")) && ($6 ~ /^Body/) && ($8 ~ num))
+               page(substr($6,7), (gensub(/ \(dev.*/,"","G", substr($4,8)) " : "), "11", substr($2,12,10))
+           }
+           # arguments: message, message prefix, color, timestamp
+           function page(msg, l1, col, ts,      lines, i,dash,ec,bc) {
+             lines = int((length(msg)-1) / width) + 1
+             # create the dash, if needed
+             ec = substr(msg,width,1); bc = substr(msg,width+1,1)
+             dash = (ec && (ec!=" ") && bc && (bc!=" ")) ? "-" : ""
+             # print the first line, preceded by date and name
+             print "\x1b[38;5;8m" strftime("[%a] ",ts) "\x1b[38;5;" \
+               col "m" l1 substr(msg,1,width) dash
+             for (i = 2; i <= lines; i++) {
+               # print other lines
+               ec = substr(msg,(i*width),1); bc=substr(msg,(i*width)+1,1)
+               dash = (ec && (ec!=" ") && bc && (bc!=" ")) ? "-" : ""
+               print sprintf("%*s", length(l1)+6, " ") \
+                 gensub(/^ */,"","G",substr(msg,((i-1)*width)+1,width)) dash
+             } # print color reset:
+             printf "\x1b[0;m" \
+           }' $LOG | eval $SEDSTR
+        echo
+    else
+        echo -e "  " $USAGE
+        exit 1
+    fi
+
+# New messages
+elif [ $1 == "new" ]
+then
+    echo
+    # cat "$LOG" | \
+    tail -n +"$OLDLINES" "$LOG" | \
+        gawk 'BEGIN{RS="" ; FS="\n"}
+          $1 ~ /^Envelope from/ && $6 ~ /^Body/ {split($4,n," ");
+            print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
+              n[2] ": " substr($6,7,20) "..." } \
+          $1 ~ /^Envelope from/ && $3 ~ /^Got/ {split($1,n," ");
+            print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
+              n[3] "[on device]" } \
+          $1 ~ /^Envelope from/ && $7 ~ /read receipt/ {split($4,n," ");
+            print  strftime("[%Y-%m-%d %H:%M] ",substr($2,12,10)) \
+              n[2] "[read]" } \
+           ' | eval "$SEDSTR" | sed -E 's/\([^)]+\)//g'
+    # echo
+    wc "$LOG" | gawk '{print $1}' > \
+       ~/.local/share/signal-cli/data/${MYNUM}.d/.oldlines
+
+# Test for user
+elif [ $1 == "ckn" ]
+then
+    if [ $# -eq 2 ]
+    then
+        echo "Testing for a Signal user at "$2
+        ERR=`signal-cli -u $MYNUM send "$2" -m "Testing if you use Signal" 2>&1 > /dev/null`
+        if [ -n "$ERR" ]
+        then
+            echo "... User does not have a Signal account"
+        else
+            echo "... User has a Signal account (Message sent was 'Testing if you use Signal')"
+        fi
+    else
+        echo -e "  " $USAGE
+        exit 1
+    fi
+
+elif [ $1 == "gls" ]
+then
+    signal-cli -u $MYNUM listGroups -d | eval "$SEDSTR"
+
+elif [ $1 == "gnu" ]
+then
+    if [ $# -eq 2 ]
+    then
+        signal-cli -u $MYNUM updateGroup -n "$2"
+    else
+        echo -e "  " $USAGE
+        exit 1
+    fi
+
+elif [ $1 == "gad" ]
+then
+    if [ $# -eq 3 ]
+    then
+        signal-cli -u $MYNUM updateGroup -g "${NUM[$2]}" -m "${NUM[$3]}"
+    else
+        echo -e "  " $USAGE
+        exit 1
+    fi
+
+# Send a message to <group> and write to logfile
+elif [ $1 == "gsd" ]
+then
+    # as long as the right # of arguments
+    if [ $# -eq 3 ] # -a -n "${NUM[$2]}" ]
+    then
+        read -p "Sending to * $2 *. Sure? (respond y) " SURE
+        if [ $SURE = "Y" -o $SURE = "y" ]
+        # comment out the previous two lines and don't want this check
+        # if [ 1 -eq 1 ] 
+        then
+            echo -e "Group sent to: "${NUM[$2]}"\nTimestamp: $DATE\nBody: $3\n"    >> $LOG
+            signal-cli -u $MYNUM send -g ${NUM[$2]} -m "$3"
+            # echo "signal-cli -u "$MYNUM" send -g "${NUM[$2]}" -m '"$3"'"
+        else
+            exit 1
+        fi
+    else
+        echo -e "  " $USAGE
+        exit 1
+    fi
+
+# end
+fi
+
+# add trust: signal-cli -u +19073858530 trust -v "50467 94008 71129 72250 81900 09933 84705 05201 02263 18919 28291 21194" +628972382695
+
