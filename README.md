@@ -1,6 +1,9 @@
 # signal-cli-wrapper
 
-_A `bash` script for easier use of [signal-cli](https://github.com/AsamK/signal-cli)_
+**NOTE** (2021-01-13) Rewrote from `bash` to `gawk`.
+
+_An `awk` (Gawk) script for easier use of
+[signal-cli](https://github.com/AsamK/signal-cli)_
 
 Usage: 
 
@@ -21,10 +24,9 @@ Also included: `checksg` a script to execute `sg rcv` and notify you via
 
  1. Make the scripts executable (`chmod u+x sg`)
  2. Scripts and `signal-cli` must be in the shell’s `$PATH`
- 3. Copy the `scw_config.sh` to `~/.local/share/signal-cli/` and assign names 
+ 3. Copy the `scw_config.awk` to `~/.local/share/signal-cli/` and assign names 
     to your numbers.
- 4. (Optional) Add the full path to `sg` in `checksg` and add `checksg`
-    to your `crontab`. E.g.: 
+ 4. (Optional) Add `checksg` to your `crontab`. E.g.: 
 
 ```    
 0,10,20,30,40,50 * * * *   /home/foo/bin/checksg
