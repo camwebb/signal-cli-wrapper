@@ -10,15 +10,14 @@
 #                    0,10,20,30,40,50 * * * *   /home/foo/bin/checksg
 
 # BEGIN CONFIG
-@include "/home/cam/.local/share/signal-cli/scw_config.awk"
+@include "/home/cam/.local/share/signal-cli/data/+19073858530.d/scw_config.awk"
 # END CONFIG
 
 BEGIN{
 
   # Setup
   config()
-  for (i in NUM)
-    iNUM[NUM[i]] = i
+  proc_nums()
 
   # test to see if you are online
   "ping -c 1 google.com 2> /dev/null | grep '1 received'" | getline CK
@@ -30,15 +29,36 @@ BEGIN{
   FS  = "\n"
   ORS = ""
   while ((cmd | getline) > 0) {
-    split($4, n, " ")
-    if (($1 ~ /^Envelope from/) && ($6 ~ /^Body/))
-      msg = msg " " iNUM[n[2]]
+    sender = body = ""
+    for (i = 1; i <= NF; i++) {
+      if ($i ~ /^Sender:/)
+        sender = gensub(/^[^+]+(\+[0-9]+) .*$/,"\\1","G",$i)
+      else if (($i ~ /^Body:/) && sender)
+        msg = msg " " iNUM[sender]
+    }
   }
   msg = substr(msg, 2)
   
   if (msg) {
     system("DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/1000/bus' "   \
            "notify-send -u normal -t 36000000 'Signal msg from " msg "'")
-    system("sudo /root/bin/msgterm 'Signal msg from " msg "'")
+    # system("sudo /root/bin/msgterm 'Signal msg from " msg "'")
+  }
+}
+
+function proc_nums(    i, n1, n2, nm, np) {
+  gsub(/ +/,"",NUMS)
+  gsub(/;$/,"",NUMS)
+  split(NUMS, n1, ";")
+  for (i in n1) {
+    split(n1[i], n2, ":")
+    nm[n2[1]]++
+    np[n2[2]]++
+    if((nm[n2[1]] > 1) || (np[n2[2]] > 1)) {
+      print "Duplicate entry: " n1[i] > "/dev/stderr"
+      exit 1
+    }
+    NUM[n2[1]] = n2[2]
+    iNUM[n2[2]] = n2[1]
   }
 }
