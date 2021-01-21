@@ -9,7 +9,6 @@ Usage:
 
  * `sig snd <name> "message"` : Send to a name not a number
  * `sig rcv` : Get messages, which are written to a log file
- * `sig cnv <name>` : Display a conversation:
  * `sig log` : Read the logs more easily (to see receipts and read-receipts)
  * `sig ids` : Check the phone numbers you have keys for
  * `sig num` : Check the phone numbers in your config file
@@ -17,6 +16,7 @@ Usage:
  * `sig cfg` : Edit config file
  * `sig cli` : Show `signal-cli` usage
  * `sig new` : Show the most recent new messages and confirmations
+ * `sig cnv <name>` : Display a conversation:
  
 <img src="img/cnv.png" width="50%"/>
 
@@ -34,7 +34,8 @@ Also included: `checksig` a script to execute `sig rcv` and notify you via
  3. Scripts and `signal-cli` must be in the shell’s `$PATH`
  4. Make sure `scw_config.awk` is in a directory present in environment
     variable `$AWKPATH` (set in `.bash_profile`, etc)
- 5. (Optional) Add `checksig` to your `crontab` file. E.g.: 
+ 5. Edit `scw_config.awk` to add short names to your numbers
+ 6. (Optional) Add `checksig` to your `crontab` file. E.g.: 
 
 ```    
 0,10,20,30,40,50 * * * *   /home/foo/bin/checksig
