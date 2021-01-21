@@ -7,7 +7,8 @@ _An `awk` (Gawk) wrapper script for easier use of
 
 Usage: 
 
- * `sig snd <name> "message"` : Send to a name not a number
+ * `sig snd <name> "message"` : Send to a name not a number (set names
+   in config file)
  * `sig rcv` : Get messages, which are written to a log file
  * `sig log` : Read the logs more easily (to see receipts and read-receipts)
  * `sig ids` : Check the phone numbers you have keys for
@@ -20,9 +21,11 @@ Usage:
  
 <img src="img/cnv.png" width="50%"/>
 
-Note (2021-01-21): `signal-cli` cannot yet handle Signal’s version 2
-groups. `sig` actions `gls`, `gad`, `glv` still work on version 1
-groups. See usage by just typing `sig`.
+Note (2021-01-21): `signal-cli` seems not to be able to
+[fully handle](https://github.com/AsamK/signal-cli/issues/354)
+Signal’s version 2 groups; action `gnu` will probably fail. Actions
+`gls`, `gad`, `glv` still work on version 1 groups. See usage by just
+typing `sig`.
 
 Also included: `checksig` a script to execute `sig rcv` and notify you via
 `send-notify`; run it as a `cron` job.
