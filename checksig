@@ -25,8 +25,14 @@ BEGIN{
   "ping -c 1 google.com 2> /dev/null | grep '1 received'" | getline CK
   if (!CK)
     exit 1
+
+  # if not run as a user the executable should be set as the first argument
+  if (ARGC == 2)
+    SIG = ARGV[1]
+  else
+    SIG = "sig"
   
-  cmd = "sig rcv"
+  cmd = SIG " rcv"
   RS  = ""
   FS  = "\n"
   ORS = ""

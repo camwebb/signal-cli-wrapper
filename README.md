@@ -38,8 +38,9 @@ Also included: `checksig` a script to execute `sig rcv` and notify you via
  4. Make sure `scw_config.awk` is in a directory present in environment
     variable `$AWKPATH` (set in `.bash_profile`, etc)
  5. Edit `scw_config.awk` to add short names to your numbers
- 6. (Optional) Add `checksig` to your `crontab` file. E.g.: 
+ 6. (Optional) Add `checksig` to your `crontab` file. (AWKPATH and the
+ `sig` path will need to be set for a non-user). E.g.:
 
 ```    
-0,10,20,30,40,50 * * * *   /home/foo/bin/checksig
+0,10,20,30,40,50 * * * *   AWKPATH=/home/foo/awklib /home/foo/bin/checksig /home/foo/bin/sig
 ```

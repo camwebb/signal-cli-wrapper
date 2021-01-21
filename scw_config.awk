@@ -2,7 +2,7 @@
 
 function config() {
   
-  # 1. Phone book; every entry from `sg ids` and `sg listGroups` :
+  # 1. Phone book; every entry from `sig ids` and `sig listGroups` :
   NUMS = " \
     foo     : +1xxxxxxxxx  ;                      \
     bar     : +62yyyyyyyyy  ;                     \
