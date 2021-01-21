@@ -4,14 +4,16 @@
 # Cam Webb <https://github.com/camwebb/signal-cli-wrapper>
 # This software is released under GNU GPLv3. See LICENSE file.
 
-# Installation: 1) make this script executable
-#               2) configure below
-#               3) trigger via crontab, e.g.,
-#                    0,10,20,30,40,50 * * * *   /home/foo/bin/checksg
+# Installation:
+#   1) Make this script executable
+#   2) Make sure the hashbang in the first line points to gawk
+#   3) This script and signal-cli must be in your shell's $PATH
+#   4) Make sure "scw_config.awk" is in a directory present in environment
+#      variable $AWKPATH
+#   5) trigger via crontab, e.g.,
+#        0,10,20,30,40,50 * * * *   /home/foo/bin/checksig
 
-# BEGIN CONFIG
-@include "/home/cam/.local/share/signal-cli/data/+19073858530.d/scw_config.awk"
-# END CONFIG
+@include "scw_config.awk"
 
 BEGIN{
 
@@ -24,7 +26,7 @@ BEGIN{
   if (!CK)
     exit 1
   
-  cmd = SG " rcv"
+  cmd = "sig rcv"
   RS  = ""
   FS  = "\n"
   ORS = ""
@@ -46,6 +48,7 @@ BEGIN{
   }
 }
 
+# this is a copy of the same function in `sig`
 function proc_nums(    i, n1, n2, nm, np) {
   gsub(/ +/,"",NUMS)
   gsub(/;$/,"",NUMS)
@@ -60,5 +63,13 @@ function proc_nums(    i, n1, n2, nm, np) {
     }
     NUM[n2[1]] = n2[2]
     iNUM[n2[2]] = n2[1]
+    if (n2[1] == MYNAME)
+      MYNUM = n2[2]
   }
+  if (!NUM[MYNAME]) {
+    print "No MYNAME in config file" > "/dev/stderr"
+    exit 1
+  }
+  # create SCLI
+  SCLI = "/home/" ENVIRON["USER"] "/.local/share/signal-cli/data/" MYNUM ".d/"
 }

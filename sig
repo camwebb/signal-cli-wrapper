@@ -1,15 +1,17 @@
 #!/usr/bin/gawk -f
 
 # Wrapper for signal-cli, adding convenience and color
-# Cam Webb <https://github.com/camwebb/signal-cli-wrapper>
+# Cam Webb. See <https://github.com/camwebb/signal-cli-wrapper>
 # License: GNU GPLv3. See LICENSE file.
 
-# Installation: 1) make this script executable
-#               2) make sure hashbang points to gawk
-#               3) this script and signal-cli must be in $PATH
-#               4) set full path of config file in following line:
+# Installation:
+#   1) Make this script executable
+#   2) Make sure the hashbang in the first line points to gawk
+#   3) This script and signal-cli must be in your shell's $PATH
+#   4) Make sure "scw_config.awk" is in a directory present in environment
+#      variable $AWKPATH
 
-@include "/home/cam/.local/share/signal-cli/data/+19073858530.d/scw_config.awk"
+@include "scw_config.awk"
 
 BEGIN{
 
@@ -23,25 +25,28 @@ BEGIN{
   # logfile date format. Note the three extra 0s
   DATE = strftime("%s000 (%Y-%m-%dT%H:%M:00.000Z)")
   
-  USAGE = "  Usage: sg\n"                                               \
-    "            snd NAME MSG   = Send\n"                               \
-    "            rcv            = Receive\n"                            \
-    "            cnv NAME       = Conversation\n"                       \
-    "            log            = See log\n"                            \
-    "            ids            = Get contacts\n"                       \
-    "            gls            = List groups\n"                        \
-    "            gnu DESC       = New group  CURRENTLY NOT WORKING\n"   \
-    "            gad GNAME NAME = Add person to group\n"                \
-    "            glv GNAME      = Leave group\n"                        \
-    "            ckn NUM        = Check NUM for Signal\n"               \
-    "            cfg            = Edit config file\n"                   \
-    "            cli            = Show signal-cli usage\n"              \
-    "            new            = See new messages"
+  USAGE = "Usage: sig ...\n"                                               \
+    "           snd NAME \"MSG\" = Send (use \"...\"\\!\\!\"...\" for" \
+    " multiple !)\n"                                                   \
+    "           rcv            = Receive\n"                            \
+    "           cnv NAME       = Conversation\n"                       \
+    "           log            = See log\n"                            \
+    "           ids            = Get contacts from server\n"           \
+    "           num            = List contacts in config\n"            \
+    "           gls            = List groups\n"                        \
+    "           gnu DESC       = New group (v2 GROUPS CURRENTLY NOT WORKING)\n"\
+    "           gad GNAME NAME = Add person to group\n"                \
+    "           glv GNAME      = Leave group\n"                        \
+    "           ckn NUM        = Check NUM for Signal\n"               \
+    "           cfg            = Edit config file\n"                   \
+    "           cli            = Show signal-cli usage\n"              \
+    "           new            = See new messages"
 
-  # Begin test for actions
+  # Begin tests for actions
   
   # Get the registered numbers
-  if (ARGV[1] == "ids") {
+  if ((ARGV[1] == "ids") && \
+      (ARGC == 2)) {
     cmd = "signal-cli -u " MYNUM " listIdentities"
     while ((cmd | getline) > 0) {
       if (iNUM[gensub(/:$/,"","G",$1)])
@@ -51,19 +56,69 @@ BEGIN{
     }
     PROCINFO["sorted_in"] = "@ind_str_asc"
     for (i in list)
-      print "  " i "  (" list[i] " num)"
+      print "  " i "  (" list[i] " devices)"
+  }
+
+  # Get the user names/numbers
+  if ((ARGV[1] == "num") &&                     \
+      (ARGC == 2)) {
+    print "Short names of people and groups in config file:"
+    PROCINFO["sorted_in"] = "@ind_str_asc"
+    for (i in NUM)
+      printf "  %-10s : %s\n",  i , NUM[i]
   }
 
   # Get the latest messages and write to stdout and to logfile
-  else if (ARGV[1] == "rcv")
-    system("signal-cli -u " MYNUM " receive | tee -a " LOG)
+  else if ((ARGV[1] ~ /(rcv|new)/) &&           \
+           (ARGC == 2)) {
+    err = system("signal-cli -u " MYNUM " receive | tee -a " LOG)
+    if (err) {
+      print "Receiving failed" > "/dev/stderr"
+      exit 1
+    }
+
+    # list new recieved messages since last time this was run
+    if (ARGV[1] == "new") {
+      getline OLDLINES < (SCLI "oldlines")
+      RS=""
+      FS="\n"
+      while (( getline < LOG ) > 0) {
+        if (++l <= OLDLINES)
+          continue
+        sender = body = ""
+        for (i = 1; i <= NF; i++) {
+          if ($i ~ /^Sender:/)
+            sender = gensub(/^[^+]+(\+[0-9]+) .*$/,"\\1","G",$i)
+          else if (($i ~ /^Body:/) && sender) {
+            if (iNUM[sender])
+              list[iNUM[sender]]++
+            else
+              list[sender]++
+          }
+        }
+      }
+    
+      PROCINFO["sorted_in"] = "@ind_str_asc"
+      if (isarray(list)) {
+        print "New messages from:"
+        for (i in list)
+          print "  " i " (" list[i] ")"
+      }
+      else
+        print "No new messages"
+      
+      # reset
+      print l > (SCLI "oldlines")
+    }
+  }
   
   # read the logfile, substituting names for numbers
-  else if (ARGV[1] == "log") {
+  else if ((ARGV[1] == "log") &&                \
+           (ARGC == 2)) {
     "mktemp" | getline TMPLOG
     while (( getline < LOG ) > 0) {
       for (i in iNUM)
-        gsub(gensub(/\+/,"\\\\+","G",i),("** " iNUM[i] " **"),$0)
+        gsub(gensub(/\+/,"\\\\+","G",i),("{" iNUM[i] "}"),$0)
       print $0 >> TMPLOG
     }
     system("less +G " TMPLOG)
@@ -75,9 +130,9 @@ BEGIN{
            (NUM[ARGV[2]])) {
     
     err = system("signal-cli -u " MYNUM " send " NUM[ARGV[2]]   \
-                 " -m '" ARGV[3] "'")
+                 " -m \"" ARGV[3] "\"")
     if (err) {
-      print "Sending failed!" > "/dev/stderr"
+      print "Sending failed" > "/dev/stderr"
       exit 1
     }
 
@@ -90,6 +145,7 @@ BEGIN{
   
   # Create a conversation from the logfile
   else if ((ARGV[1] == "cnv") &&                \
+           (ARGC == 3) &&                       \
            (NUM[ARGV[2]])) {
     RS=""
     FS="\n"
@@ -99,14 +155,14 @@ BEGIN{
     while (( getline < LOG ) > 0) {
       # Parse log - starting signal-cli 0.7.2-1 not expecting any particular
       #   order of log fields
-      sender = sent_to = ts = body = ""
+      sender = sent_to = ts = body = att = ""
       for (i = 1; i <= NF; i++) {
         if ($i ~ /^Sender:/)
           # complicated, because if the number is in Signal 'contacts' then
           #   the contact name appears before the number
-          sender = gensub(/^[^+]+(\+[0-9]+) .*$/,"\\1","G",$i)
+          sender = gensub(/^[^+]+(\+[0-9]+).*$/,"\\1","G",$i)
         else if ($i ~ /^To:/)
-          sent_to = gensub(/^[^+]+(\+[0-9]+) .*$/,"\\1","G",$i)
+          sent_to = gensub(/^[^+]+(\+[0-9]+).*$/,"\\1","G",$i)
         else if ($i ~ /^Timestamp:/)
           ts = substr($i,12,10)
         else if ($i ~ /^Body:/) {
@@ -120,29 +176,35 @@ BEGIN{
             k++
           }
         }
+        else if ($i ~ /Stored plaintext/)
+          body = body " [ ATT:  ~/.local/share/signal-cli/attachments/" \
+             gensub(/.*\/attachments\/(.*)$/,"\\1","G",$i) " ]"
       }
-      
+
+      # print "{" sender "}{" sent_to "}{" body "}"
       # for each log entry, is it a sent to person?
       # TODO, separate out Group messages
       if ((sent_to == NUM[name]) && body)
         format_line(body, (sprintf("%*s", length(name), " ") "<< "), "10", ts)
       # sent from person?
       else if ((sender == NUM[name]) && body)
-        format_line(body, (name " : "), "11", ts)
-        
+          format_line(body, (name " : "), "11", ts)
+      
       # # sent to group?
       # else if ($1 ~ ("Group sent to: " name))
-      #   format_line(substr($3,7), (sprintf("%*s", length(name), " ") "<< "),   \
+      #   format_line(substr($3,7), (sprintf("%*s", length(name), " ") "<< "), \
       #        "10", substr($2,12,10))
       # # sent from group friend
       # else if (($4 ~ ("Sender:")) && ($6 ~ /^Body/) && ($8 ~ name))
-      #   format_line(substr($6,7), (gensub(/ \(dev.*/,"","G", substr($4,8)) " : "), \
+      #   format_line(substr($6,7), (gensub(/ \(dev.*/,"","G", substr($4,8)) \
+      #     " : "),                                                     \
       #        "11", substr($2,12,10))
     }
   }
 
   # Test for user
   else if ((ARGV[1] == "ckn") &&                \
+           (ARGC == 3) &&                       \
            (ARGV[2] ~ /\+[0-9]+/)) {
     print "Testing for a Signal user at " ARGV[2]
     err = system("signal-cli -u " MYNUM " send " ARGV[2]            \
@@ -221,8 +283,15 @@ BEGIN{
   }
 
   # Edit config file
-  else if (ARGV[1] == "cfg")
-    system("emacs " SCLI "scw_config.awk &")
+  else if (ARGV[1] == "cfg") {
+    split(ENVIRON["AWKPATH"], e, ":")
+    for (i in e) {
+      gsub(/\/+$/,"",e[i])
+      "test -e " e[i] "/scw_config.awk ; echo $?" | getline status
+      if (!status)
+        system("emacs " e[i] "/scw_config.awk &")
+    }
+  }
   
   # Show signal-cli commands
   else if (ARGV[1] == "cli")
@@ -243,42 +312,8 @@ BEGIN{
       "signal-cli -u " MYNUM " updateProfile --name 'Joe' --avatar FILE.jpg\n" \
       "signal-cli -u " MYNUM " updateContact +1234... -n 'Jane'\n" \
       "signal-cli -u " MYNUM " sendContacts\n"
-
-  # list new recieved messages since last time this was run
-  else if (ARGV[1] == "new") {
-    getline OLDLINES < (SCLI "oldlines")
-    RS=""
-    FS="\n"
-    while (( getline < LOG ) > 0) {
-      if (++l <= OLDLINES)
-        continue
-      sender = body = ""
-      for (i = 1; i <= NF; i++) {
-        if ($i ~ /^Sender:/)
-          sender = gensub(/^[^+]+(\+[0-9]+) .*$/,"\\1","G",$i)
-        else if (($i ~ /^Body:/) && sender) {
-          if (iNUM[sender])
-            list[iNUM[sender]]++
-          else
-            list[sender]++
-        }
-      }
-    }
-    
-    PROCINFO["sorted_in"] = "@ind_str_asc"
-    if (isarray(list)) {
-      print "New messages from:"
-      for (i in list)
-        print "  " i " (" list[i] ")"
-    }
-    else
-      print "No new messages"
-
-    # reset
-    print l > (SCLI "oldlines")
-  } 
   
-      # If no arguments, or other fail
+  # If no arguments, or other fail
   else {
     print USAGE
     exit 1
@@ -333,4 +368,10 @@ function proc_nums(    i, n1, n2, nm, np) {
     if (n2[1] == MYNAME)
       MYNUM = n2[2]
   }
+  if (!NUM[MYNAME]) {
+    print "No MYNAME in config file" > "/dev/stderr"
+    exit 1
+  }
+  # create SCLI
+  SCLI = "/home/" ENVIRON["USER"] "/.local/share/signal-cli/data/" MYNUM ".d/"
 }

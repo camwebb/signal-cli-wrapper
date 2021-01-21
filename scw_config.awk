@@ -10,8 +10,4 @@ function config() {
 
   # User's name in number list:
   MYNAME        = "foo"
-  # path to signal-cli data directory:
-  SCLI         = "/home/foo/.local/share/signal-cli/data/+1xxxxxxxxxx.d/"
-  # location of sg executable (for checksg):
-  SG           = "/home/foo/bin/sg"
 }

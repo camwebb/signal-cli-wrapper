@@ -1,33 +1,41 @@
 # signal-cli-wrapper
 
-**NOTE** (2021-01-13) Rewrote from `bash` to `gawk`.
+**NOTE** (2021-01-13) Rewrote from a `bash` to `gawk` script.
 
-_An `awk` (Gawk) script for easier use of
+_An `awk` (Gawk) wrapper script for easier use of
 [signal-cli](https://github.com/AsamK/signal-cli)_
 
 Usage: 
 
- * `sg snd <name> "message"` : Send to a name not a number
- * `sg rcv` : Get messages, which are written to a log file
- * `sg ids` : Check the phone numbers you have keys for
- * `sg ckn <num>` : Test if `<num>` (prefix with `+`) using Signal
- * `sg log` : Read the logs more easily (to see receipts and read-receipts)
- * `sg new` : Show the most recent new messages and confirmations
- * `sg cnv <name>` : Display a conversation:
+ * `sig snd <name> "message"` : Send to a name not a number
+ * `sig rcv` : Get messages, which are written to a log file
+ * `sig cnv <name>` : Display a conversation:
+ * `sig log` : Read the logs more easily (to see receipts and read-receipts)
+ * `sig ids` : Check the phone numbers you have keys for
+ * `sig num` : Check the phone numbers in your config file
+ * `sig ckn <num>` : Test if `<num>` (prefix with `+`) using Signal
+ * `sig cfg` : Edit config file
+ * `sig cli` : Show `signal-cli` usage
+ * `sig new` : Show the most recent new messages and confirmations
  
 <img src="img/cnv.png" width="50%"/>
 
-Also included: `checksg` a script to execute `sg rcv` and notify you via
+Note (2021-01-21): `signal-cli` cannot yet handle Signal’s version 2
+groups. `sig` actions `gls`, `gad`, `glv` still work on version 1
+groups. See usage by just typing `sig`.
+
+Also included: `checksig` a script to execute `sig rcv` and notify you via
 `send-notify`; run it as a `cron` job.
 
 ## Installation
 
- 1. Make the scripts executable (`chmod u+x sg`)
- 2. Scripts and `signal-cli` must be in the shell’s `$PATH`
- 3. Copy the `scw_config.awk` to `~/.local/share/signal-cli/` and assign names 
-    to your numbers.
- 4. (Optional) Add `checksg` to your `crontab`. E.g.: 
+ 1. Make the scripts executable (`chmod u+x sig; chmod u+x checksig`)
+ 2. Make sure the hashbang in the first line of scripts points to `gawk`
+ 3. Scripts and `signal-cli` must be in the shell’s `$PATH`
+ 4. Make sure `scw_config.awk` is in a directory present in environment
+    variable `$AWKPATH` (set in `.bash_profile`, etc)
+ 5. (Optional) Add `checksig` to your `crontab` file. E.g.: 
 
 ```    
-0,10,20,30,40,50 * * * *   /home/foo/bin/checksg
+0,10,20,30,40,50 * * * *   /home/foo/bin/checksig
 ```
