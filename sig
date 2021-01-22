@@ -1,4 +1,4 @@
-#!/usr/bin/gawk -f
+#!/bin/env -S gawk -f
 
 # Wrapper for signal-cli, adding convenience and color
 # Cam Webb. See <https://github.com/camwebb/signal-cli-wrapper>
@@ -6,9 +6,8 @@
 
 # Installation:
 #   1) Make this script executable
-#   2) Make sure the hashbang in the first line points to gawk
-#   3) This script and signal-cli must be in your shell's $PATH
-#   4) Make sure "scw_config.awk" is in a directory present in environment
+#   2) This script and signal-cli must be in your shell's $PATH
+#   3) Make sure "scw_config.awk" is in a directory present in environment
 #      variable $AWKPATH
 
 @include "scw_config.awk"

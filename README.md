@@ -33,14 +33,14 @@ Also included: `checksig` a script to execute `sig rcv` and notify you via
 ## Installation
 
  1. Make the scripts executable (`chmod u+x sig; chmod u+x checksig`)
- 2. Make sure the hashbang in the first line of scripts points to `gawk`
- 3. Scripts and `signal-cli` must be in the shell’s `$PATH`
- 4. Make sure `scw_config.awk` is in a directory present in environment
+ 2. Scripts and `signal-cli` must be in the shell’s `$PATH`
+ 3. Make sure `scw_config.awk` is in a directory present in environment
     variable `$AWKPATH` (set in `.bash_profile`, etc)
- 5. Edit `scw_config.awk` to add short names to your numbers
- 6. (Optional) Add `checksig` to your `crontab` file. (AWKPATH and the
+ 4. (Optional) Add `checksig` to your `crontab` file. (AWKPATH and the
  `sig` path will need to be set for a non-user). E.g.:
 
 ```    
 0,10,20,30,40,50 * * * *   AWKPATH=/home/foo/awklib /home/foo/bin/checksig /home/foo/bin/sig
 ```
+
+Then edit `scw_config.awk` to add short names for your numbers.

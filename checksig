@@ -1,4 +1,4 @@
-#!/usr/bin/gawk -f
+#!/bin/env -S gawk -f
 
 # Cron executable to check for new signal messages and notify
 # Cam Webb <https://github.com/camwebb/signal-cli-wrapper>
@@ -6,12 +6,13 @@
 
 # Installation:
 #   1) Make this script executable
-#   2) Make sure the hashbang in the first line points to gawk
-#   3) This script and signal-cli must be in your shell's $PATH
-#   4) Make sure "scw_config.awk" is in a directory present in environment
+#   2) This script and signal-cli must be in your shell's $PATH
+#   3) Make sure "scw_config.awk" is in a directory present in environment
 #      variable $AWKPATH
-#   5) trigger via crontab, e.g.,
-#        0,10,20,30,40,50 * * * *   /home/foo/bin/checksig
+#   4) trigger via crontab, e.g.,
+#        0,10,20,30,40,50 * * * *   AWKPATH=/home/foo/awklib \
+#                                   /home/foo/bin/checksig   \
+#                                   /home/foo/bin/sig
 
 @include "scw_config.awk"
 
