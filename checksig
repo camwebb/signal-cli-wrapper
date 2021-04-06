@@ -42,15 +42,25 @@ BEGIN{
     for (i = 1; i <= NF; i++) {
       if ($i ~ /^Sender:/)
         sender = gensub(/^[^+]+(\+[0-9]+) .*$/,"\\1","G",$i)
-      else if (($i ~ /^Body:/) && sender)
-        msg = msg " " iNUM[sender]
+      else if (($i ~ /^Body:/) && sender && (sender != MYNUM)) {
+        if (iNUM[sender])
+          list[iNUM[sender]]++
+        else
+          list[sender]++
+      }
     }
   }
-  msg = substr(msg, 2)
+  
+  PROCINFO["sorted_in"] = "@ind_str_asc"
+  if (isarray(list)) {
+    msg = ""
+    for (i in list)
+      msg = msg " " i " (" list[i] ")"
+  }
   
   if (msg) {
     system("DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/1000/bus' "   \
-           "notify-send -u normal -t 36000000 'Signal msg from " msg "'")
+           "notify-send -u normal -t 36000000 'Signal messages from:" msg "'")
     # system("sudo /root/bin/msgterm 'Signal msg from " msg "'")
   }
 }

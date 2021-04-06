@@ -24,11 +24,12 @@ BEGIN{
   # logfile date format. Note the three extra 0s
   DATE = strftime("%s000 (%Y-%m-%dT%H:%M:00.000Z)")
   
-  USAGE = "Usage: sig ...\n"                                               \
-    "           snd NAME \"MSG\" = Send (use \"...\"\\!\\!\"...\" for" \
+  USAGE = "Usage: sig ...\n"                                           \
+    "           NAME [ts]      = Conversation [show timestamps]\n"     \
+    "           NAME \"MSG\"     = Send (use \"...\"\\!\\!\"...\" for" \
     " multiple !)\n"                                                   \
+    "           NAME TS :+1:   = React with emoji\n"                   \
     "           rcv            = Receive\n"                            \
-    "           cnv NAME       = Conversation\n"                       \
     "           log            = See log\n"                            \
     "           ids            = Get contacts from server\n"           \
     "           num            = List contacts in config\n"            \
@@ -36,7 +37,8 @@ BEGIN{
     "           gnu DESC       = New group (v2 GROUPS CURRENTLY NOT WORKING)\n"\
     "           gad GNAME NAME = Add person to group\n"                \
     "           glv GNAME      = Leave group\n"                        \
-    "           ckn NUM        = Check NUM for Signal\n"               \
+    "           ckn +NUM       = Check +NUM for Signal\n"              \
+    "           trs NAME CODE  = Verify safety CODE\n"                 \
     "           cfg            = Edit config file\n"                   \
     "           cli            = Show signal-cli usage\n"              \
     "           new            = See new messages"
@@ -44,7 +46,7 @@ BEGIN{
   # Begin tests for actions
   
   # Get the registered numbers
-  if ((ARGV[1] == "ids") && \
+  if ((ARGV[1] == "ids") &&                     \
       (ARGC == 2)) {
     cmd = "signal-cli -u " MYNUM " listIdentities"
     while ((cmd | getline) > 0) {
@@ -57,7 +59,7 @@ BEGIN{
     for (i in list)
       print "  " i "  (" list[i] " devices)"
   }
-
+  
   # Get the user names/numbers
   if ((ARGV[1] == "num") &&                     \
       (ARGC == 2)) {
@@ -68,7 +70,7 @@ BEGIN{
   }
 
   # Get the latest messages and write to stdout and to logfile
-  else if ((ARGV[1] ~ /(rcv|new)/) &&           \
+  else if ((ARGV[1] ~ /^(rcv|new|n)$/) &&       \
            (ARGC == 2)) {
     err = system("signal-cli -u " MYNUM " receive | tee -a " LOG)
     if (err) {
@@ -77,7 +79,7 @@ BEGIN{
     }
 
     # list new recieved messages since last time this was run
-    if (ARGV[1] == "new") {
+    if (ARGV[1] ~ /^new$/) {
       getline OLDLINES < (SCLI "oldlines")
       RS=""
       FS="\n"
@@ -89,9 +91,9 @@ BEGIN{
           if ($i ~ /^Sender:/)
             sender = gensub(/^[^+]+(\+[0-9]+) .*$/,"\\1","G",$i)
           else if (($i ~ /^Body:/) && sender) {
-            if (iNUM[sender])
+            if ((iNUM[sender]) && (sender != MYNUM))
               list[iNUM[sender]]++
-            else
+            else if (sender != MYNUM)
               list[sender]++
           }
         }
@@ -124,12 +126,12 @@ BEGIN{
   }
   
   # Send a message to <name> and write to logfile
-  else if ((ARGV[1] == "snd") &&                \
-           (ARGC == 4) &&                       \
-           (NUM[ARGV[2]])) {
+  else if ((ARGC == 3) &&                       \
+           (NUM[ARGV[1]]) &&                    \
+           (ARGV[2] != "ts")) {
     
-    err = system("signal-cli -u " MYNUM " send " NUM[ARGV[2]]   \
-                 " -m \"" ARGV[3] "\"")
+    err = system("signal-cli -u " MYNUM " send " NUM[ARGV[1]]   \
+                 " -m \"" ARGV[2] "\"")
     if (err) {
       print "Sending failed" > "/dev/stderr"
       exit 1
@@ -138,19 +140,52 @@ BEGIN{
     print "Envelope from: " MYNUM " (device: 1)\n"  \
           "Timestamp: " DATE "\n" \
           "Sender: " MYNUM " (device: 1)\n" \
-          "To: " NUM[ARGV[2]] "\n" \
-          "Body: " ARGV[3] "\n" >> LOG
+          "To: " NUM[ARGV[1]] "\n"              \
+          "Body: " ARGV[2] "\n" >> LOG
   }
-  
+
+  # Send a reaction and write to logfile
+  else if ((ARGC == 4) &&                       \
+           (NUM[ARGV[1]]) &&                    \
+           (ARGV[2] ~ /16[0-9]+/) &&            \
+           (ARGV[3] ~ /^:.+:$/)) {
+
+    emoji[":+1:"] = "👍"
+    emoji[":heart:"] = "🧡"
+
+    if (!emoji[ARGV[3]]) {
+      print "Emoji not found" > "/dev/stderr"
+      exit 1
+    }
+
+    err = system("signal-cli -u " MYNUM " sendReaction " NUM[ARGV[1]]   \
+                 " -a " NUM[ARGV[1]] " -t " ARGV[2] " -e " emoji[ARGV[3]])
+    if (err) {
+      print "Sending failed" > "/dev/stderr"
+      exit 1
+    }
+
+    print "Envelope from: " MYNUM " (device: 1)\n"  \
+      "Timestamp: " DATE "\n"                       \
+      "Sender: " MYNUM " (device: 1)\n"             \
+      "To: " NUM[ARGV[1]] "\n"                      \
+      "Reaction:\n"                                 \
+      "  Emoji: " emoji[ARGV[3]] "\n"               \
+      "  Target timestamp: " ARGV[2] "\n"  >> LOG
+  }
+
   # Create a conversation from the logfile
-  else if ((ARGV[1] == "cnv") &&                \
-           (ARGC == 3) &&                       \
-           (NUM[ARGV[2]])) {
+  else if (((ARGC == 2)     &&                  \
+            (NUM[ARGV[1]])) ||                  \
+           ((ARGC == 3) &&                      \
+            (NUM[ARGV[1]]) &&                   \
+            (ARGV[2] == "ts"))) {
     RS=""
     FS="\n"
     Width = 55
-    name = ARGV[2]
-
+    name = ARGV[1]
+    showts = (ARGV[2] == "ts") ? 1 : 0
+    
     while (( getline < LOG ) > 0) {
       # Parse log - starting signal-cli 0.7.2-1 not expecting any particular
       #   order of log fields
@@ -160,17 +195,17 @@ BEGIN{
           # complicated, because if the number is in Signal 'contacts' then
           #   the contact name appears before the number
           sender = gensub(/^[^+]+(\+[0-9]+).*$/,"\\1","G",$i)
-        else if ($i ~ /^To:/)
+        else if ($i ~ /^ *To:/)
           sent_to = gensub(/^[^+]+(\+[0-9]+).*$/,"\\1","G",$i)
-        else if ($i ~ /^Timestamp:/)
-          ts = substr($i,12,10)
-        else if ($i ~ /^Body:/) {
-          body = substr($i, 7)
+        else if ($i ~ /^ *Timestamp:/) # note 2nd ts will overwrite
+          ts = gensub(/.* (16[0-9]+) .*/, "\\1", "G", $i)
+        else if ($i ~ /^ *Body:/) {
+          body = gensub(/^ *Body: +/, "", "G", $i)
           # multi line - tricky
           k = i + 1
           while ((k <= NF) &&                       \
-                 ($k !~ /^[A-Z][a-z]+:/) &&         \
-                 ($k !~ /^Profile key update/)) {
+                 ($k !~ /^ *[A-Z][a-z]+:/) &&         \
+                 ($k !~ /^ *Profile key update/)) {
             body = body " // " $k
             k++
           }
@@ -179,15 +214,15 @@ BEGIN{
           body = body " [ ATT:  ~/.local/share/signal-cli/attachments/" \
              gensub(/.*\/attachments\/(.*)$/,"\\1","G",$i) " ]"
       }
-
+      
       # print "{" sender "}{" sent_to "}{" body "}"
       # for each log entry, is it a sent to person?
       # TODO, separate out Group messages
       if ((sent_to == NUM[name]) && body)
-        format_line(body, (sprintf("%*s", length(name), " ") "<< "), "10", ts)
+        format_line(body, (sprintf("%*s", length(name), " ") "<< "), "10", ts, showts)
       # sent from person?
       else if ((sender == NUM[name]) && body)
-          format_line(body, (name " : "), "11", ts)
+        format_line(body, (name " : "), "11", ts, showts)
       
       # # sent to group?
       # else if ($1 ~ ("Group sent to: " name))
@@ -281,6 +316,19 @@ BEGIN{
       ARGV[3] "\n" >> LOG
   }
 
+  else if ((ARGV[1] == "trs") &&                \
+           (ARGC == 4) &&                       \
+           (NUM[ARGV[2]]) &&
+           (gensub(/ /,"","G",ARGV[3]) ~ /^[0-9]+$/)) {
+    
+    err = system("signal-cli -u " MYNUM " trust " NUM[ARGV[2]]  \
+                 " -v " gensub(/ /,"","G",ARGV[3]))
+    if (err) {
+      print "trust command failed!" > "/dev/stderr"
+      exit 1
+    }
+  }
+
   # Edit config file
   else if (ARGV[1] == "cfg") {
     split(ENVIRON["AWKPATH"], e, ":")
@@ -301,6 +349,7 @@ BEGIN{
       "signal-cli -u " MYNUM " updateAccount\n"                         \
       "signal-cli -u " MYNUM " send +1234... -m 'message'\n"            \
       "signal-cli -u " MYNUM " send +1234... -a FILE.jpg\n"             \
+      "signal-cli -u " MYNUM " sendReaction +1234... -t TS -e 😃\n"     \
       "signal-cli -u " MYNUM " receive\n"                               \
       "signal-cli -u " MYNUM " updateGroup -n 'New name'  NOT WORKING\n" \
       "signal-cli -u " MYNUM " updateGroup -g '1XAe...' -m +1234\n"     \
@@ -324,10 +373,12 @@ BEGIN{
 # TODO add trust:
 #  signal-cli -u +1xxxxxxxxxx trust -v "50467 94008 ..." +62yyyyyyyyyy
 
-function format_line(msg, l1, col, ts,      lines, i,dash,ec,bc) {
+function format_line(msg, l1, col, ts, showts,     lines, i,dash,ec,bc) {
   # arguments: message, message prefix, color, timestamp
   # (for colors: https://en.wikipedia.org/wiki/ANSI_escape_code )
 
+  if (showts)
+    msg = msg " " ts 
   lines = int((length(msg)-1) / Width) + 1
   # create the dash, if needed
   ec = substr(msg,Width,1)
@@ -366,11 +417,23 @@ function proc_nums(    i, n1, n2, nm, np) {
     iNUM[n2[2]] = n2[1]
     if (n2[1] == MYNAME)
       MYNUM = n2[2]
+    if (n2[1] ~ /^(rcv|log|ids|num|gls|gnu|gad|glv|ckn|trs|cfg|cli|new)$/) {
+      print "'" n2[1] "' in config file is a reserved keyword" > "/dev/stderr"
+      exit 1
+    }
   }
   if (!NUM[MYNAME]) {
     print "No MYNAME in config file" > "/dev/stderr"
     exit 1
   }
+
+
+  
   # create SCLI
   SCLI = "/home/" ENVIRON["USER"] "/.local/share/signal-cli/data/" MYNUM ".d/"
+}
+
+# NB: this is needed for compatibility with gawk-json v2+
+function json_fromJSON(input_string, output_array) {
+  return json::from_json(input_string, output_array)
 }
