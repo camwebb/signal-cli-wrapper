@@ -14,7 +14,7 @@
 #                                   /home/foo/bin/checksig   \
 #                                   /home/foo/bin/sig
 
-@include "scw_config.awk"
+@include "/home/cam/lib/awk-libs/scw_config.awk"
 
 BEGIN{
 
@@ -28,10 +28,10 @@ BEGIN{
     exit 1
 
   # if not run as a user the executable should be set as the first argument
-  if (ARGC == 2)
-    SIG = ARGV[1]
-  else
-    SIG = "sig"
+  # if (ARGC == 2)
+  #   SIG = ARGV[1]
+  # else
+  SIG = "/home/cam/bin/signal"
   
   cmd = SIG " rcv"
   RS  = ""
