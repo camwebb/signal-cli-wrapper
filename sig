@@ -10,12 +10,13 @@
 #   3) Make sure "scw_config.awk" is in a directory present in environment
 #      variable $AWKPATH
 
+@load "json"
 @include "scw_config.awk"
 
 BEGIN{
 
   # Setup
-  config()
+  config()  # in file scw_config.awk
   proc_nums()
 
   # logfile
@@ -32,14 +33,14 @@ BEGIN{
     "           NAME TS :+1:   = React with emoji\n"                   \
     "           rcv            = Receive\n"                            \
     "           log            = See log\n"                            \
-    "           ids            = Get contacts from server\n"           \
+    "           ids NAME       = Get contact info from server\n"       \
     "           num            = List contacts in config\n"            \
     "           gls            = List groups\n"                        \
     "           gnu DESC       = New group (v2 GROUPS CURRENTLY NOT WORKING)\n"\
     "           gad GNAME NAME = Add person to group\n"                \
     "           glv GNAME      = Leave group\n"                        \
     "           ckn +NUM       = Check +NUM for Signal\n"              \
-    "           trs NAME CODE  = Verify safety CODE\n"                 \
+    "           ver NAME CODE  = Verify safety CODE\n"                 \
     "           cfg            = Edit config file\n"                   \
     "           cli            = Show signal-cli usage\n"              \
     "           new            = See new messages"
@@ -48,21 +49,19 @@ BEGIN{
   
   # Get the registered numbers
   if ((ARGV[1] == "ids") &&                     \
-      (ARGC == 2)) {
-    cmd = "signal-cli -o json -u " MYNUM " listIdentities"
-    while ((cmd | getline) > 0) {
-      if (iNUM[gensub(/:$/,"","G",$1)])
-        list[iNUM[gensub(/:$/,"","G",$1)]]++
-      else
-        list[gensub(/:$/,"","G",$1)]++
-    }
-    PROCINFO["sorted_in"] = "@ind_str_asc"
-    for (i in list)
-      print "  " i "  (" list[i] " devices)"
+      (ARGC == 3)) {
+    ("signal-cli -o json -u " MYNUM " listIdentities -n " NUM[ARGV[2]]) \
+      | getline json
+    # json::from_json(json, data)
+    # print ARGV[2]
+    # print "  " data[1]["number"]
+    print "  " data[1]["uuid"]
+    print "  " data[1]["trustLevel"]
+    print "  " data[1]["safetyNumber"]
   }
-  
+
   # Get the user names/numbers
-  if ((ARGV[1] == "num") &&                     \
+  else if ((ARGV[1] == "num") &&               \
       (ARGC == 2)) {
     print "Short names of people and groups in config file:"
     PROCINFO["sorted_in"] = "@ind_str_asc"
@@ -189,60 +188,97 @@ BEGIN{
            ((ARGC == 3) &&                      \
             (NUM[ARGV[1]]) &&                   \
             (ARGV[2] == "ts"))) {
-    RS=""
-    FS="\n"
+    # RS=""
+    # FS="\n"
     Width = 51
     name = ARGV[1]
     showts = (ARGV[2] == "ts") ? 1 : 0
-    
-    while (( getline < LOG ) > 0) {
-      # Parse log - starting signal-cli 0.7.2-1 not expecting any particular
-      #   order of log fields
-      sender = sent_to = ts = body = att = ""
-      for (i = 1; i <= NF; i++) {
-        if ($i ~ /^Sender:/)
-          # complicated, because if the number is in Signal 'contacts' then
-          #   the contact name appears before the number
-          sender = gensub(/^[^+]+(\+[0-9]+).*$/,"\\1","G",$i)
-        else if ($i ~ /^ *To:/)
-          sent_to = gensub(/^[^+]+(\+[0-9]+).*$/,"\\1","G",$i)
-        else if ($i ~ /^ *Timestamp:/) # note 2nd ts will overwrite
-          ts = gensub(/.* (16[0-9]+) .*/, "\\1", "G", $i)
-        else if ($i ~ /^ *Body:/) {
-          body = gensub(/^ *Body: +/, "", "G", $i)
-          # multi line - tricky
-          k = i + 1
-          # to do - if the message contains \n\n then the end of the
-          # record is noted.  Somehow need to join these records together
-          while ((k <= NF) &&                         \
-                 ($k !~ /^ *[A-Z][a-z]+:/) &&         \
-                 ($k !~ /^ *Profile key update/)) {
-            body = body " // " $k
-            k++
-          }
-        }
-        else if ($i ~ /Stored plaintext/)
-          body = body " [ " gensub(/.*\/attachments\/(.*)$/,"\\1","G",$i) " ]"
-      }
+    json = "["
+
+    # read log file
+    while (getline < LOG )
+      json = json $0 ","
+    gsub(/,$/,"]",json)
+
+    # parse
+    if (! json::from_json(json, data)) {
+      print "JSON import failed!" > "/dev/stderr"
+      exit 1
+    }
+
+    walk_array(data, "data")
+    # exit 0
+    # read json
+    PROCINFO["sorted_in"] = "@ind_num_asc"
+
+    for (i in data) {
+      
+      # #   order of log fields
+      # sender = sent_to = ts = body = att = ""
+      # for (i = 1; i <= NF; i++) {
+      #   if ($i ~ /^Sender:/)
+      #     # complicated, because if the number is in Signal 'contacts' then
+      #     #   the contact name appears before the number
+      #     sender = gensub(/^[^+]+(\+[0-9]+).*$/,"\\1","G",$i)
+      #   else if ($i ~ /^ *To:/)
+      #     sent_to = gensub(/^[^+]+(\+[0-9]+).*$/,"\\1","G",$i)
+      #   else if ($i ~ /^ *Timestamp:/) # note 2nd ts will overwrite
+      #     ts = gensub(/.* (16[0-9]+) .*/, "\\1", "G", $i)
+      #   else if ($i ~ /^ *Body:/) {
+      #     body = gensub(/^ *Body: +/, "", "G", $i)
+      #     # multi line - tricky
+      #     k = i + 1
+      #     # to do - if the message contains \n\n then the end of the
+      #     # record is noted.  Somehow need to join these records together
+      #     while ((k <= NF) &&                         \
+      #            ($k !~ /^ *[A-Z][a-z]+:/) &&         \
+      #            ($k !~ /^ *Profile key update/)) {
+      #       body = body " // " $k
+      #       k++
+      #     }
+      #   }
+      #   else if ($i ~ /Stored plaintext/)
+      #     body = body " [ " gensub(/.*\/attachments\/(.*)$/,"\\1","G",$i) " ]"
+      # }
       
       # print "{" sender "}{" sent_to "}{" body "}"
       # for each log entry, is it a sent to person?
       # TODO, separate out Group messages
-      if ((sent_to == NUM[name]) && body)
-        format_line(body, (sprintf("%*s", (length(name)), " ") " < "), "10", ts, showts)
-      # sent from person?
-      else if ((sender == NUM[name]) && body)
-        format_line(body, (name " : "), "11", ts, showts)
-      
-      # # sent to group?
-      # else if ($1 ~ ("Group sent to: " name))
-      #   format_line(substr($3,7), (sprintf("%*s", length(name), " ") "<< "), \
-      #        "10", substr($2,12,10))
-      # # sent from group friend
-      # else if (($4 ~ ("Sender:")) && ($6 ~ /^Body/) && ($8 ~ name))
-      #   format_line(substr($6,7), (gensub(/ \(dev.*/,"","G", substr($4,8)) \
-      #     " : "),                                                     \
-      #        "11", substr($2,12,10))
+
+      body = ts = dest = from = group =""
+      if (isarray(data[i]["envelope"]["syncMessage"]) ||    \
+          isarray(data[i]["envelope"]["dataMessage"])) {
+
+        # post from me to person or group
+        if (isarray(data[i]["envelope"]["syncMessage"]["sentMessage"])) {
+          body = data[i]["envelope"]["syncMessage"]["sentMessage"]["message"]
+          ts = data[i]["envelope"]["syncMessage"]["sentMessage"]["timestamp"]
+          dest = (isarray(data[i]["envelope"]["syncMessage"]["sentMessage"]["groupInfo"])) ? data[i]["envelope"]["syncMessage"]["sentMessage"]["groupInfo"]["groupId"] : data[i]["envelope"]["syncMessage"]["sentMessage"]["destination"]
+          from = data[i]["envelope"]["sourceNumber"]
+        }
+        # post from someone else to group (but not a reaction or call)
+        else if (isarray(data[i]["envelope"]["dataMessage"]))
+          if (data[i]["envelope"]["dataMessage"]["message"]) {
+            body = data[i]["envelope"]["dataMessage"]["message"]
+            ts = data[i]["envelope"]["dataMessage"]["timestamp"]
+            group = data[i]["envelope"]["dataMessage"]["groupInfo"]["groupId"]
+            from = data[i]["envelope"]["source"]
+          }
+
+        # me to person or group
+        if (from == MYNUM && dest == NUM[name])
+          format_line(body, (sprintf("%*s", (length(name)), " ") " < "), \
+                      "10", ts , showts)
+        # other direct to me
+        else if (dest == MYNUM && from == NUM[name])
+          format_line(body, (name " : "), "11", ts, showts)
+        # other to group
+        else if (group == NUM[name] && from != NUM[name])
+          format_line(body, (iNUM[from] " : "), "11", ts, showts)
+        # other to me, in dataMessage, no dest
+        else if (!group && from == NUM[name])
+          format_line(body, (iNUM[from] " : "), "11", ts, showts)
+      }
     }
   }
 
@@ -251,8 +287,9 @@ BEGIN{
            (ARGC == 3) &&                       \
            (ARGV[2] ~ /\+[0-9]+/)) {
     print "Testing for a Signal user at " ARGV[2]
-    "signal-cli -u " MYNUM " getUserStatus " ARGV[2] | getline ckn
-    if (ckn !~ /true/)
+    ("signal-cli -o json -u " MYNUM " getUserStatus " ARGV[2]) | getline json
+    json::from_json(json, data)
+    if (!data[1]["isRegistered"])
       print "... User does not have a Signal account"
     else
       print "... User has a Signal account"
@@ -324,13 +361,13 @@ BEGIN{
       ARGV[3] "\n" >> LOG
   }
 
-  else if ((ARGV[1] == "trs") &&                \
+  else if ((ARGV[1] == "ver") &&                \
            (ARGC == 4) &&                       \
            (NUM[ARGV[2]]) &&
            (gensub(/ /,"","G",ARGV[3]) ~ /^[0-9]+$/)) {
     
     err = system("signal-cli -u " MYNUM " trust " NUM[ARGV[2]]  \
-                 " -v " gensub(/ /,"","G",ARGV[3]))
+                 " -v '" gensub(/ /,"","G",ARGV[3]) "'")
     if (err) {
       print "trust command failed!" > "/dev/stderr"
       exit 1
@@ -354,7 +391,7 @@ BEGIN{
       "signal-cli -u " MYNUM " addDevice --uri 'tsdevice:/?uuid=...'\n" \
       "signal-cli -u " MYNUM " listDevices\n"                           \
       "signal-cli -u " MYNUM " getUserStatus NUM\n"                     \
-      "signal-cli -u " MYNUM " listIdentities\n"                        \
+      "signal-cli -u " MYNUM " listIdentities -n NUM\n"                 \
       "signal-cli -u " MYNUM " updateAccount\n"                         \
       "signal-cli -u " MYNUM " send +1234... -m 'message'\n"            \
       "signal-cli -u " MYNUM " send +1234... -a FILE.jpg\n"             \
@@ -367,7 +404,7 @@ BEGIN{
       "signal-cli -u " MYNUM " listGroups -d\n"                         \
       "signal-cli -u " MYNUM " trust +1234... -v '2345 4567 ...'\n"     \
       "signal-cli -u " MYNUM " updateProfile --name 'Joe' --avatar FILE.jpg\n" \
-      "signal-cli -u " MYNUM " updateContact +1234... -n 'Jane'\n" \
+      "signal-cli -u " MYNUM " updateContact +1234... --name 'Jane'\n" \
       "signal-cli -u " MYNUM " sendContacts\n"
   
   # If no arguments, or other fail
@@ -446,4 +483,19 @@ function proc_nums(    i, n1, n2, nm, np) {
 # NB: this is needed for compatibility with gawk-json v2+
 function json_fromJSON(input_string, output_array) {
   return json::from_json(input_string, output_array)
+}
+
+function walk_array(arr, name,      i) {
+  for (i in arr) {
+    if (isarray(arr[i]))
+      if (i ~ /^[0-9]+$/)
+        walk_array(arr[i], (name "[" i "]"))
+      else
+        walk_array(arr[i], (name "[\"" i "\"]"))
+    else
+      if (i ~ /^[0-9]+$/)
+        printf("%s[%s] = %s\n", name, i, arr[i])
+      else
+        printf("%s[\"%s\"] = %s\n", name, i, arr[i])
+  }
 }
